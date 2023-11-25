@@ -1,11 +1,3 @@
-
-/*
-CS-UY 2214
-Jeff Epstein
-Starter code for E20 simulator
-sim.cpp
-*/
-
 #include <cstddef>
 #include <iostream>
 #include <string>
@@ -286,4 +278,3 @@ int main(int argc, char *argv[]) {
 
     return 0;
 }
-//ra0Eequ6ucie6Jei0koh6phishohm9
