@@ -370,7 +370,7 @@ vector<string> assemblerOutput(int argc, char* argv[]) {
         instructions.emplace_back(lines[i], i);
     }
 
-    // // Print parsed instructions
+    // Print parsed instructions
     // for (const auto& inst : instructions) {
     //     cout << inst.toString() << endl;
     // }
@@ -392,6 +392,6 @@ vector<string> assemblerOutput(int argc, char* argv[]) {
 
 
 // int main(int argc, char* argv[]){
-    
+//     assemblerOutput(argc, argv);
 //     return 0;
 // }

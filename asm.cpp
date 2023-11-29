@@ -318,9 +318,9 @@ vector<string> assemblerOutput(int argc, char* argv[]) {
 
     instruction_parser(instructions);
 
-    for (const auto& inst : instructions) {
-        cout << inst << endl;
-    }
+    // for (const auto& inst : instructions) {
+    //     cout << inst << endl;
+    // }
 
     vector<Label> labels;
     vector<string> string_rgs;
@@ -355,11 +355,11 @@ vector<string> assemblerOutput(int argc, char* argv[]) {
 //     Main function
 //     Takes command-line args as documented below
 // */
-int main(int argc, char* argv[]) {
+// int main(int argc, char* argv[]) {
     
-    assemblerOutput(argc, argv);
-    return 0;
-}
+//     assemblerOutput(argc, argv);
+//     return 0;
+// }
 
 void remove_whitespace(string& a) {
     size_t begin = a.find_first_not_of(" \n\r\t\f\v");

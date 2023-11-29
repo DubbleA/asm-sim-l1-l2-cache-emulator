@@ -1,6 +1,6 @@
-foo :
+foo:
     movi $1 , foo # ram [0]
-    lw $2 , foo ($0 ) # ram [1]
+    lw $2 , foo ($0) # ram [1]
     halt # ram [2]
 
 # Final state:
