@@ -3,7 +3,7 @@
 #include <string>
 #include <sstream>
 #include <vector>
-#include "a.cpp"
+#include "asm.cpp"
 
 struct TestCase {
     std::string filename;

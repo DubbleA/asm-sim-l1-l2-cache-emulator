@@ -1,272 +1,51 @@
 #include <iostream>
 #include <string>
-#include <vector>
-#include <cmath>
-#include <fstream>
-
-#include <cstring>
-#include <algorithm>
 #include <sstream>
-
-#include <cstddef>
 #include <bitset>
-
+#include <vector>
+#include <fstream>
+#include <map>
+#include <algorithm>
 
 using namespace std;
 
-const unsigned ADD = 0; //000 rg1 rg2 rg3 0000
-const unsigned SUB = 1; //000 rg1 rg2 rg3 0001
-const unsigned AND = 2; //000 rg1 rg2 rg3 0010 
-const unsigned OR = 3;  //000 rg1 rg2 rg3 0011 
-const unsigned SLT = 4; //000 rg1 rg2 rg3 0100 
-const unsigned JR = 8;  //000 rg1 000 000 1000 
-const unsigned SLTI = 57344; //111 rg1 rg2 7b'imm
-const unsigned LW = 32768;   //100 rg1 rg2 7b'imm
-const unsigned SW = 40960; //101 rg1 rg2 7b'imm
-const unsigned JEQ = 49152; //110 rg1 rg2 7b'rel_imm
-const unsigned ADDI = 8192; //001 rg1 rg2 7b'imm
-const unsigned J = 16384; //010 13b'imm
-const unsigned JAL = 24576; //011 13b'imm
+// const unsigned ADD = 0; //000 rg1 rg2 rg3 0000
+// const unsigned SUB = 1; //000 rg1 rg2 rg3 0001
+// const unsigned AND = 2; //000 rg1 rg2 rg3 0010 
+// const unsigned OR = 3;  //000 rg1 rg2 rg3 0011 
+// const unsigned SLT = 4; //000 rg1 rg2 rg3 0100 
+// const unsigned JR = 8;  //000 rg1 000 000 1000 
+// const unsigned SLTI = 57344; //111 rg1 rg2 7b'imm
+// const unsigned LW = 32768;   //100 rg1 rg2 7b'imm
+// const unsigned SW = 40960; //101 rg1 rg2 7b'imm
+// const unsigned JEQ = 49152; //110 rg1 rg2 7b'rel_imm
+// const unsigned ADDI = 8192; //001 rg1 rg2 7b'imm
+// const unsigned J = 16384; //010 13b'imm
+// const unsigned JAL = 24576; //011 13b'imm
 
+map<string, int> labels;
 
-//The movi $reg, imm instruction is translated by the assembler as addi $reg, $0, imm.
-//The nop instruction is translated by the assembler as add $0, $0, $0.
-//The halt instruction is translated by the assembler as an unconditional jump (j) to the current memory location.
-//.fill some_label Example: .fill 42 Inserts a 16-bit immediate value
-
-
-/*
-• All functions should have a documenting comment in the appropriate style describing its purpose,
-behavior, inputs, and outputs. In addition, where appropriate, code should be commented to describe
-its purpose and method of operation.
-*/
-
-
-//takes a vector of string references that will be changed respectfully.
-//removes whitespace and if there is a label, it moves the next instruction to the same line
-void instruction_parser(vector<string>&);
-
-//takes in a string by reference
-//removes extra whitespace from the string i.e. tabs // new lines
-void remove_whitespace(string&);
-
-//Label struct stores name and int value of label
-struct Label {
-    int value;
-    string name;
-    bool valid = false;
+enum class Opcode : unsigned {
+    ADD = 0, //000 rg1 rg2 rg3 0000
+    SUB = 1, //000 rg1 rg2 rg3 0001
+    AND = 2, //000 rg1 rg2 rg3 0010 
+    OR = 3,  //000 rg1 rg2 rg3 0011 
+    SLT = 4, //000 rg1 rg2 rg3 0100 
+    JR = 8,  //000 rg1 000 000 1000 
+    SLTI = 57344, //111 rg1 rg2 7b'imm
+    LW = 32768,   //100 rg1 rg2 7b'imm
+    SW = 40960, //101 rg1 rg2 7b'imm
+    JEQ = 49152, //110 rg1 rg2 7b'rel_imm
+    ADDI = 8192, //001 rg1 rg2 7b'imm
+    J = 16384, //010 13b'imm
+    JAL = 24576 //011 13b'imm
 };
-//takes in a string instruction after redundant whitespace has been removed
-//if the instruction is not a label (calculated by detecting :) return what is before the first delimiter (space)
-//else if there is a label then remove whitespace after the colon and extract the opcode from the leftovers
-string opcode_delimiter(const string& instruction) {
-    string opcode;
-    if (instruction.find(':') == string::npos) {
-        opcode = instruction.substr(0, instruction.find(' '));
-    }
-    else {
-        string temp = instruction.substr(instruction.find(':') + 1);
-        remove_whitespace(temp);
-        opcode = temp.substr(0, temp.find(' '));
-    }
-    return opcode;
-}
 
-//does the same thing as the opcode delimiter instead we're extracting the second half instead of the first
-//takes in a string instruction after redundant whitespace has been removed
-//if the instruction is not a label (calculated by detecting :) return what is after the first delimiter (space)
-//else if there is a label then remove whitespace after the colon and extract the address from the leftovers
-//accounting for .fill
-string address_delimiter(const string& instruction) {
-    string address;
-    if (instruction.find(':') == string::npos) {
-        address = instruction.substr(instruction.find(' ') + 1);
-        remove_whitespace(address);
-        address.erase(remove(address.begin(), address.end(), ' '), address.end());
-
-    }
-    else if (instruction.find(':') != string::npos) {
-        string temp = instruction.substr(instruction.find(':') + 1);
-        remove_whitespace(temp);
-        if (temp.find('.') != string::npos) {
-            address = temp.substr(temp.find(' ') + 1);
-            return address;
-        }
-        address = temp.substr(temp.find(' ') + 1);
-        address.erase(remove(address.begin(), address.end(), ' '), address.end());
-        return address;
-    }
-    return address;
-}
-
-//given a string and index if there is a colon make a label struct and make sure its valid.
-//returns label struct
-Label label_delimiter(const string& instruction, int index) {
-    string label;
-    Label labelStruct;
-    if (instruction.find(':') != string::npos) {
-        label = instruction.substr(0, instruction.find(':'));
-        remove_whitespace(label);
-        labelStruct.name = label;
-        labelStruct.value = index;
-        labelStruct.valid = true;
-    }
-    return labelStruct;
-}
-
-//if a string contains a number return true else return false
-//takes in a partition of the string that it is trying to calculate for.
-bool containsNum(const string& stringPartition)
-{
-    return std::find_if(stringPartition.begin(), stringPartition.end(), ::isdigit) != stringPartition.end();
-}
-
-//takes in a partition of the string, and the vector of labels to test against. 
-//goal of this is to take our string and return a corresponding number value for our machine code building.
-//if the string partition is a value, return the value of the label
-//else if there is no number in the partition return 0
-//if there is a $ designating a register, return the value of the register converted from string
-//else if there is a number in the string return the conversion of the string from string to int
-//else return 0 if none of the conditions have been hit.
-
-unsigned rgs_parser(const string& partition, const vector<Label>& labels) {
-
-
-    for (Label b : labels) {
-        if (partition == b.name)
-            return b.value;
-    }
-
-    if (!containsNum(partition)) {
-        return 0;
-    }
-
-    if (partition.find('$') != string::npos) {
-        return stoi(partition.substr(partition.find('$') + 1));
-    }
-    if (containsNum(partition))
-        return stoi(partition);
-
-
-    return 0;
-
-}
-
-//function takes the instruction part of the E20 Language line, and the vector of labels
-//first goal of the program is to convert the instruction into a vector of strings that are split by the delimiter (,)
-//we take that vector of strings and use the rgs parser to get the respective number value for the string
-//returns a vector of ints. 
-//In the case that there are only 1 or 2 register arguments, there will be duplicates in the 
-//respective second and third index(s) which wont be accessed when building the machine code later. 
-
-vector<int> three_comma_delimiter(const string& address, const vector<Label>& labels) {
-    vector<string> rgs;
-    string temp = address;
-    vector<int> int_rgs;
-    string substring;
-
-    for (size_t i = 0; i < 3; i++) {
-
-        substring = temp.substr(0, temp.find(','));
-        remove_whitespace(substring);
-        rgs.push_back(substring);
-        temp = temp.substr(temp.find(',') + 1);
-    }
-
-    if (rgs[1].find('(') != string::npos) {
-        int_rgs.push_back(rgs_parser(rgs[0], labels));
-        string memoryImm = rgs[1].substr(0, rgs[1].find('('));
-        //cout << memoryImm;
-        int_rgs.push_back(rgs_parser(memoryImm, labels));
-        memoryImm = rgs[1].substr(rgs[1].find('(') + 1);
-        string registerVal = memoryImm.substr(0, memoryImm.find(')'));
-        int_rgs.push_back(rgs_parser(registerVal, labels));
-    }
-    else {
-        int_rgs.push_back(rgs_parser(rgs[0], labels));
-        int_rgs.push_back(rgs_parser(rgs[1], labels));
-        int_rgs.push_back(rgs_parser(rgs[2], labels));
-    }
-
-    for (size_t i = 0; i < int_rgs.size(); i++) {
-        if (int_rgs[i] == 32766)
-            int_rgs.erase(int_rgs.begin() + i);
-    }
-
-    return int_rgs;
-}
-
-/*
-constant values of the integer number using the Decimal to binary converter (which was nice
-for organization and debugging) to create the basis for my machine code building.
-Then by utilizing the bitwise operations outlined in the hint section of the project
-( & and << ) I manually built the machine code based on the opcode in a series of if statements.
-
-takes in the opcode, index (program counter), and the vector of ints parsed from the instruction component
-returns the unsigned integer value that will be converted into the 16 bit machine code
-*/
-
-constexpr unsigned full_address_parser(const string& opcode, int index, const vector<int>& rgs) {
-    if (opcode == "add") {
-        return ADD | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
-    }
-    if (opcode == "sub") {
-        return SUB | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
-    }
-    if (opcode == "and") {
-        return AND | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
-    }
-    if (opcode == "or") {
-        return OR | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
-    }
-    if (opcode == "slt") {
-        return SLT | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
-    }
-    if (opcode == "jr") {
-        return JR | ((rgs[0] & 7) << 10);
-    }
-    //Instructions with two register arguments
-    if (opcode == "slti") {
-        return SLTI | ((rgs[1] & 7) << 10) | ((rgs[0] & 7) << 7) | (rgs[2] & 127);
-    }
-    if (opcode == "lw") {
-        return LW | (rgs[2] & 7) << 10 | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
-    }
-    if (opcode == "sw") {
-        return SW | ((rgs[2] & 7) << 10) | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
-    }
-    if (opcode == "jeq") {
-        return JEQ | ((rgs[0] & 7) << 10) | ((rgs[1] & 7) << 7) | ((rgs[2] - index - 1) & 127);
-    }
-    if (opcode == "addi") {
-        return ADDI | ((rgs[1] & 7) << 10) | ((rgs[0] & 7) << 7) | (rgs[2] & 127);
-    }
-    if (opcode == "j") {
-        return J | (rgs[0] & 8191);
-    }
-    if (opcode == "jal") {
-        return JAL | (rgs[0] & 8191);
-    }
-    //psuedo instructions
-    if (opcode == "movi") {
-        return ADDI | ((0) << 10) | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
-    }
-    if (opcode == "nop") {
-        return ADD | (((0) << 10) | ((0) << 7) | ((0) << 4));
-    }
-    if (opcode == "halt") {
-        return J | ((index));
-    }
-    if (opcode == ".fill") {
-        return rgs[0];
-    }
-}
-
-vector<string> assemblerOutput(int argc, char* argv[]) {
+ifstream filenameLoader(int argc, char* argv[], char*& filename){
     /*
         Parse the command-line arguments
     */
-    char* filename = nullptr;
+    //char* filename = nullptr;
     bool do_help = false;
     bool arg_error = false;
     for (int i = 1; i < argc; i++) {
@@ -292,7 +71,7 @@ vector<string> assemblerOutput(int argc, char* argv[]) {
         cerr << "  filename    The file containing assembly language, typically with .s suffix" << endl << endl;
         cerr << "optional arguments:" << endl;
         cerr << "  -h, --help  show this help message and exit" << endl;
-        return {};
+        return ifstream();
     }
 
     /* iterate through the line in the file, construct a list
@@ -300,100 +79,355 @@ vector<string> assemblerOutput(int argc, char* argv[]) {
     ifstream f(filename);
     if (!f.is_open()) {
         cerr << "Can't open file " << filename << endl;
-        return {};
+        return ifstream();
     }
+    return f;
+}
 
-    /* our final output is a list of ints values representing
-       machine code instructions */
-    vector<string> instructions;
-
-    string line;
+void lineParser(ifstream& f, vector<string>& lines) {
+    string line, label;
     while (getline(f, line)) {
-        size_t pos = line.find("#");
-        if (pos != string::npos)
-            line = line.substr(0, pos);
-        if (line.size() > 0)
-            instructions.push_back(line);
+        // Remove comments
+        size_t commentPos = line.find("#");
+        if (commentPos != string::npos) {
+            line = line.substr(0, commentPos);
+        }
+
+        // Trim whitespace
+        size_t begin = line.find_first_not_of(" \n\r\t\f\v");
+        size_t end = line.find_last_not_of(" \n\r\t\f\v");
+        line = (begin == string::npos) ? "" : line.substr(begin, (end == string::npos) ? string::npos : end - begin + 1);
+
+        // Check for label
+        size_t labelPos = line.find(':');
+        if (labelPos != string::npos) {
+            label = line.substr(0, labelPos + 1);
+            if (labelPos + 1 < line.length()) {
+                // Combine label with instruction on the same line
+                lines.push_back(label + " " + line.substr(labelPos + 1));
+                label.clear();
+            }
+        } else {
+            if (!line.empty()) {
+                if (!label.empty()) {
+                    lines.push_back(label + " " + line);
+                    label.clear();
+                } else {
+                    lines.push_back(line);
+                }
+            }
+        }
+    }
+}
+
+class Instruction {
+public:
+    Instruction(const string& line, int index) {
+        this->index = index;
+        parseInstruction(line);
     }
 
-    instruction_parser(instructions);
+    void parseInstruction(const string& line) {
+        size_t labelEnd = line.find(':');
+        size_t start = 0;
 
-    // for (const auto& inst : instructions) {
-    //     cout << inst << endl;
+        // Parse label if exists
+        if (labelEnd != string::npos) {
+            label = line.substr(0, labelEnd);
+            removeWhitespace(label);
+            labels[label] = index;
+            start = labelEnd + 1; // Start looking for opcode after the label
+        }
+
+        // Find the start position of the opcode
+        size_t opcodeStart = line.find_first_not_of(" \n\r\t\f\v", start);
+
+        // If there's no opcode, return
+        if (opcodeStart == string::npos) {
+            return;
+        }
+
+        // Find the end of the opcode
+        size_t spacePos = line.find(' ', opcodeStart);
+
+        // Extract opcode
+        if (spacePos == string::npos) {
+            // The rest of the line is the opcode
+            opcode = line.substr(opcodeStart);
+        } else {
+            // The opcode ends at the first space
+            opcode = line.substr(opcodeStart, spacePos - opcodeStart);
+        }
+
+        // Parse operands if there are any
+        if (spacePos != string::npos && spacePos + 1 < line.length()) {
+            string operandsStr = line.substr(spacePos + 1);
+            parseOperands(operandsStr);
+        }
+    }
+
+    static void removeWhitespace(string& a) {
+        size_t begin = a.find_first_not_of(" \n\r\t\f\v");
+        a = (begin == string::npos) ? "" : a.substr(begin);
+    }
+
+    bool isNumeric(const string& str) {
+        return !str.empty() && std::all_of(str.begin(), str.end(), [](char c) { return ::isdigit(c) || c == '-'; });
+    }
+
+    void parseOperands(const string& operandsStr) {
+        stringstream ss(operandsStr);
+        string operand;
+
+        while (getline(ss, operand, ',')) {
+            removeWhitespace(operand);
+
+            if (operand.empty()) {
+                continue;
+            }
+
+            if ((opcode == "lw" || opcode == "sw") && operand.find('(') != string::npos) {
+                // Special handling for 'lw' and 'sw' instructions
+                size_t openParen = operand.find('(');
+                size_t closeParen = operand.find(')');
+
+                string immOrLabel = operand.substr(0, openParen);
+                string registerPart = operand.substr(openParen + 1, closeParen - openParen - 1);
+
+                if (isNumeric(immOrLabel)) {
+                    // Immediate value
+                    operands.push_back(immOrLabel);
+                } else if (labels.find(immOrLabel) != labels.end()) {
+                    // Label value
+                    operands.push_back(to_string(labels[immOrLabel]));
+                } else {
+                    // Error case: handle accordingly
+                }
+
+                if (!registerPart.empty() && registerPart[0] == '$') {
+                    // Register part
+                    operands.push_back(registerPart.substr(1));
+                } else {
+                    // Error case: handle accordingly
+                }
+            } else {
+                // Handle other operands
+                if (operand[0] == '$') {
+                    operands.push_back(operand.substr(1)); // Extract register number
+                } else if (isNumeric(operand)) {
+                    operands.push_back(operand); // Direct immediate value
+                } else if (labels.find(operand) != labels.end()) {
+                    operands.push_back(to_string(labels[operand])); // Label value
+                } else {
+                    if (labels.find(operand) != labels.end()) {
+                        operands.push_back(to_string(labels[operand])); // Label value
+                    } else {
+                        operands.push_back(to_string(labels.size() + 1)); // Default address for unresolved labels
+                    }
+                }
+            }
+        }
+    }
+
+    string getOpcode() const {
+        return opcode;
+    }
+
+    vector<int> getOperandsAsInt() const {
+        vector<int> intOperands;
+        for (const auto& op : operands) {
+            if (labels.find(op) != labels.end()) {
+                // Operand is a label; use its associated value from the labels map
+                intOperands.push_back(labels.at(op));
+            } else {
+                // Operand is not a label; convert string to int
+                intOperands.push_back(stoi(op));
+            }
+        }
+        return intOperands;
+    }
+
+    int getIndex() const {
+        return index;
+    }
+
+    string toString() const {
+        stringstream ss;
+        if (!label.empty()) {
+            ss << label << ": ";
+        }
+        ss << "opcode: " << opcode;
+        for (const auto& operand : operands) {
+            ss << " rg: " << operand;
+        }
+        return ss.str();
+    }
+
+private:
+    string label;
+    string opcode;
+    vector<string> operands;
+    int index;
+    //static map<string, int> labels;
+};
+
+void firstPassForLabels(const vector<string>& lines) {
+    int instructionIndex = 0;
+    for (const auto& line : lines) {
+        size_t labelPos = line.find(':');
+        if (labelPos != string::npos) {
+            string label = line.substr(0, labelPos);
+            Instruction::removeWhitespace(label); // Assuming you have a static method for this
+            labels[label] = instructionIndex;
+        }
+        instructionIndex++;
+    }
+}
+
+unsigned machineCodeParser(const Instruction& instruction){
+    string opcode = instruction.getOpcode(); 
+    vector<int> rgs = instruction.getOperandsAsInt();
+    int index = instruction.getIndex();
+
+    auto encode_three_reg_instr = [&](Opcode op) {
+        return static_cast<unsigned>(op) | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+    };
+
+    auto encode_two_reg_imm_instr = [&](Opcode op) {
+        return static_cast<unsigned>(op) | ((rgs[1] & 7) << 10) | ((rgs[0] & 7) << 7) | (rgs[2] & 127);
+    };
+
+    if (opcode == "add") return encode_three_reg_instr(Opcode::ADD); //
+    if (opcode == "sub") return encode_three_reg_instr(Opcode::SUB); //
+    if (opcode == "and") return encode_three_reg_instr(Opcode::AND);//
+    if (opcode == "or")  return encode_three_reg_instr(Opcode::OR);//
+    if (opcode == "slt") return encode_three_reg_instr(Opcode::SLT);//
+    if (opcode == "jr")  return static_cast<unsigned>(Opcode::JR) | ((rgs[0] & 7) << 10);
+    if (opcode == "slti") return encode_two_reg_imm_instr(Opcode::SLTI);
+    if (opcode == "lw")   return static_cast<unsigned>(Opcode::LW) | (rgs[2] & 7) << 10 | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
+    if (opcode == "sw")   return static_cast<unsigned>(Opcode::SW) | (rgs[2] & 7) << 10 | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
+    if (opcode == "jeq")  return static_cast<unsigned>(Opcode::JEQ) | ((rgs[0] & 7) << 10) | ((rgs[1] & 7) << 7) | ((rgs[2] - index - 1) & 127);
+    if (opcode == "addi") return encode_two_reg_imm_instr(Opcode::ADDI);
+    if (opcode == "j")    return static_cast<unsigned>(Opcode::J) | (rgs[0] & 8191);
+    if (opcode == "jal")  return static_cast<unsigned>(Opcode::JAL) | (rgs[0] & 8191);
+
+    // Pseudo instructions
+    if (opcode == "movi") return static_cast<unsigned>(Opcode::ADDI) | ((0) << 10) | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
+    if (opcode == "nop")  return static_cast<unsigned>(Opcode::ADD) | (((0) << 10) | ((0) << 7) | ((0) << 4));
+    if (opcode == "halt") return static_cast<unsigned>(Opcode::J) | (index);
+    if (opcode == ".fill") return rgs[0];
+
+    throw std::invalid_argument("Unknown opcode: " + opcode);
+}
+
+// unsigned full_address_parser(const Instruction& instruction) {
+//     string opcode = instruction.getOpcode();
+//     vector<int> rgs = instruction.getOperandsAsInt();
+//     int index = instruction.getIndex();
+
+//     if (opcode == "add") {
+//         return ADD | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+//     }
+//     if (opcode == "sub") {
+//         return SUB | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+//     }
+//     if (opcode == "and") {
+//         return AND | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+//     }
+//     if (opcode == "or") {
+//         return OR | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+//     }
+//     if (opcode == "slt") {
+//         return SLT | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+//     }
+//     if (opcode == "jr") {
+//         return JR | ((rgs[0] & 7) << 10);
+//     }
+//     //Instructions with two register arguments
+//     if (opcode == "slti") {
+//         return SLTI | ((rgs[1] & 7) << 10) | ((rgs[0] & 7) << 7) | (rgs[2] & 127);
+//     }
+//     if (opcode == "lw") {
+//         return LW | (rgs[2] & 7) << 10 | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
+//     }
+//     if (opcode == "sw") {
+//         return SW | ((rgs[2] & 7) << 10) | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
+//     }
+//     if (opcode == "jeq") {
+//         return JEQ | ((rgs[0] & 7) << 10) | ((rgs[1] & 7) << 7) | ((rgs[2] - index - 1) & 127);
+//     }
+//     if (opcode == "addi") {
+//         return ADDI | ((rgs[1] & 7) << 10) | ((rgs[0] & 7) << 7) | (rgs[2] & 127);
+//     }
+//     if (opcode == "j") {
+//         return J | (rgs[0] & 8191);
+//     }
+//     if (opcode == "jal") {
+//         return JAL | (rgs[0] & 8191);
+//     }
+//     //psuedo instructions
+//     if (opcode == "movi") {
+//         return ADDI | ((0) << 10) | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
+//     }
+//     if (opcode == "nop") {
+//         return ADD | (((0) << 10) | ((0) << 7) | ((0) << 4));
+//     }
+//     if (opcode == "halt") {
+//         return J | ((index));
+//     }
+//     if (opcode == ".fill") {
+//         return rgs[0];
+//     }
+//     return -1; // unknown
+// }
+
+vector<string> assemblerOutput(int argc, char* argv[]) {
+    char* filename = nullptr;
+    ifstream f = filenameLoader(argc, argv, filename);
+    if (!f) return {};
+    vector<string> lines;
+
+    lineParser(f, lines);
+    int counter = 0;
+    // for (const auto& inst : lines) {
+    //     cout << counter << ": "<< inst << endl;
+    //     counter++;
     // }
 
-    vector<Label> labels;
-    vector<string> string_rgs;
-    vector<int> int_rgs;
+    firstPassForLabels(lines);
 
+    // for(const auto& tt: labels){
+    //     cout << tt.first << ": " << tt.second << endl;
+    // }
+    vector<Instruction> instructions;
 
-    for (size_t i = 0; i < instructions.size(); i++) {
-        if (label_delimiter(instructions[i], i).valid)
-            labels.push_back(label_delimiter(instructions[i], i));
+    for (int i = 0; i < lines.size(); ++i) {
+        instructions.emplace_back(lines[i], i);
     }
+
+    // Print parsed instructions
+    // for (const auto& inst : instructions) {
+    //     cout << inst.toString() << endl;
+    // }
 
     int program_counter = 0;
 
     vector<string> result;
 
-    for (size_t i = 0; i < instructions.size(); i++) {
-        int_rgs = three_comma_delimiter(address_delimiter(instructions[i]), labels);
-        string opcode = opcode_delimiter(instructions[i]);
-        if (opcode.length() > 0) {
-            std::ostringstream oss;
-            bitset<16> instruction_in_binary(full_address_parser(opcode, program_counter, int_rgs));
-            //cout << "ram[" << program_counter << "] = 16'b" << instruction_in_binary << ";" << endl;
-            oss << "ram[" << program_counter << "] = 16'b" << instruction_in_binary << ";";
-            result.push_back(oss.str());
-            program_counter++;
-        }
+    for (size_t i = 0; i < instructions.size(); ++i) {
+        std::ostringstream oss;
+        bitset<16> instruction_in_binary(machineCodeParser(instructions[i]));
+        // bitset<16> instruction_in_binary(full_address_parser(instructions[i]));
+        //cout << "ram[" << program_counter << "] = 16'b" << instruction_in_binary << ";" << endl;
+        oss << "ram[" << program_counter << "] = 16'b" << instruction_in_binary << ";";
+        result.push_back(oss.str());
+        program_counter++;
     }
     return result;
 }
 
-// /**
-//     Main function
-//     Takes command-line args as documented below
-// */
-// int main(int argc, char* argv[]) {
-    
+
+// int main(int argc, char* argv[]){
 //     assemblerOutput(argc, argv);
 //     return 0;
 // }
-
-void remove_whitespace(string& a) {
-    size_t begin = a.find_first_not_of(" \n\r\t\f\v");
-    a = (begin == string::npos) ? "" : a.substr(begin);
-}
-
-void instruction_parser(vector<string>& instructions) {
-
-    for (string& a : instructions) {
-        remove_whitespace(a);
-    }
-
-    for (size_t i = 0; i < instructions.size(); i++) {
-        string temp;
-        string a = instructions[i];
-        if (a.find(':') != string::npos) {
-            temp = a.substr(a.find(':') + 1);
-            if (temp == "" && (i < instructions.size() - 1)) {
-                temp = a + ' ' + instructions[i + 1];
-                instructions[i] = temp;
-                instructions.erase(instructions.begin() + (i + 1));
-            }
-        }
-    }
-
-} 
-/*
-g++ -std=c++20 -Isrc asm.cpp -o asm
-g++ -std=c++20 -Isrc asmold.cpp -o asmold
-
-g++ -std=c++20 -Isrc a.cpp -o a
-
-./a asmfiles/fib_iter.s
-
-time ./a asmfiles/fib_iter.s              
-time ./asm asmfiles/fib_iter.s
-*/
