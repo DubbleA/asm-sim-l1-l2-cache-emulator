@@ -141,7 +141,7 @@ string print_state(unsigned pc, unsigned regs[], unsigned memory[], size_t memqu
     }
     if (cr)
         oss << endl;
-    cout << oss.str();
+    //cout << oss.str();
     return oss.str();
 }
 
@@ -291,5 +291,8 @@ string simulator(int argc, char *argv[]){
 }
 
 int main(int argc, char *argv[]){
-    simulator(argc,argv);
+    cout << simulator(argc,argv);
+    return 0;
 }
+
+//g++ -std=c++20 -Isrc sim.cpp -o sim && ./sim

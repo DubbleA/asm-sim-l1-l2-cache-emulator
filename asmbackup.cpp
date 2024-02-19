@@ -268,6 +268,7 @@ private:
     string opcode;
     vector<string> operands;
     int index;
+    //static map<string, int> labels;
 };
 
 void firstPassForLabels(const vector<string>& lines) {
@@ -276,7 +277,7 @@ void firstPassForLabels(const vector<string>& lines) {
         size_t labelPos = line.find(':');
         if (labelPos != string::npos) {
             string label = line.substr(0, labelPos);
-            Instruction::removeWhitespace(label);
+            Instruction::removeWhitespace(label); // Assuming you have a static method for this
             labels[label] = instructionIndex;
         }
         instructionIndex++;
@@ -319,6 +320,66 @@ unsigned machineCodeParser(const Instruction& instruction){
     throw std::invalid_argument("Unknown opcode: " + opcode);
 }
 
+// unsigned full_address_parser(const Instruction& instruction) {
+//     string opcode = instruction.getOpcode();
+//     vector<int> rgs = instruction.getOperandsAsInt();
+//     int index = instruction.getIndex();
+
+//     if (opcode == "add") {
+//         return ADD | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+//     }
+//     if (opcode == "sub") {
+//         return SUB | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+//     }
+//     if (opcode == "and") {
+//         return AND | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+//     }
+//     if (opcode == "or") {
+//         return OR | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+//     }
+//     if (opcode == "slt") {
+//         return SLT | ((rgs[1] & 7) << 10) | ((rgs[2] & 7) << 7) | ((rgs[0] & 7) << 4);
+//     }
+//     if (opcode == "jr") {
+//         return JR | ((rgs[0] & 7) << 10);
+//     }
+//     //Instructions with two register arguments
+//     if (opcode == "slti") {
+//         return SLTI | ((rgs[1] & 7) << 10) | ((rgs[0] & 7) << 7) | (rgs[2] & 127);
+//     }
+//     if (opcode == "lw") {
+//         return LW | (rgs[2] & 7) << 10 | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
+//     }
+//     if (opcode == "sw") {
+//         return SW | ((rgs[2] & 7) << 10) | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
+//     }
+//     if (opcode == "jeq") {
+//         return JEQ | ((rgs[0] & 7) << 10) | ((rgs[1] & 7) << 7) | ((rgs[2] - index - 1) & 127);
+//     }
+//     if (opcode == "addi") {
+//         return ADDI | ((rgs[1] & 7) << 10) | ((rgs[0] & 7) << 7) | (rgs[2] & 127);
+//     }
+//     if (opcode == "j") {
+//         return J | (rgs[0] & 8191);
+//     }
+//     if (opcode == "jal") {
+//         return JAL | (rgs[0] & 8191);
+//     }
+//     //psuedo instructions
+//     if (opcode == "movi") {
+//         return ADDI | ((0) << 10) | ((rgs[0] & 7) << 7) | (rgs[1] & 127);
+//     }
+//     if (opcode == "nop") {
+//         return ADD | (((0) << 10) | ((0) << 7) | ((0) << 4));
+//     }
+//     if (opcode == "halt") {
+//         return J | ((index));
+//     }
+//     if (opcode == ".fill") {
+//         return rgs[0];
+//     }
+//     return -1; // unknown
+// }
 
 vector<string> assemblerOutput(int argc, char* argv[]) {
     char* filename = nullptr;
@@ -328,14 +389,26 @@ vector<string> assemblerOutput(int argc, char* argv[]) {
 
     lineParser(f, lines);
     int counter = 0;
+    // for (const auto& inst : lines) {
+    //     cout << counter << ": "<< inst << endl;
+    //     counter++;
+    // }
 
     firstPassForLabels(lines);
 
+    // for(const auto& tt: labels){
+    //     cout << tt.first << ": " << tt.second << endl;
+    // }
     vector<Instruction> instructions;
 
     for (int i = 0; i < lines.size(); ++i) {
         instructions.emplace_back(lines[i], i);
     }
+
+    // Print parsed instructions
+    // for (const auto& inst : instructions) {
+    //     cout << inst.toString() << endl;
+    // }
 
     int program_counter = 0;
 
